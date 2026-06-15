@@ -18,6 +18,12 @@ public class Bullet : MonoBehaviour
             Debug.LogError("Empty BulletName" + gameObject.name);
         }
         bulletTime = 0;
+
+        // Play shoot SFX when the bullet is spawned (if SFXManager is available)
+        if (SFXManager.Instance != null)
+        {
+            SFXManager.Instance.PlayShoot();
+        }
     }
 
     // Update is called once per frame

@@ -8,6 +8,7 @@ public class Zombie : MonoBehaviour
     public bool death;
     Animator anim;
     BoxCollider2D col;
+    bool deathSoundPlayed = false;
 
     public float speed;
 
@@ -27,6 +28,16 @@ public class Zombie : MonoBehaviour
         {
             col.enabled = false;
             anim.SetTrigger("Death");
+
+            // Play death SFX once when death is triggered
+            if (!deathSoundPlayed)
+            {
+                if (SFXManager.Instance != null)
+                {
+                    SFXManager.Instance.PlayZombieDeath();
+                }
+                deathSoundPlayed = true;
+            }
 
             if (this.anim.GetCurrentAnimatorStateInfo(0).IsName("Zombie_Death"))
             {

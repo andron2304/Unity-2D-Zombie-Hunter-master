@@ -29,6 +29,23 @@ public class ZombieSpawner : MonoBehaviour
         Instantiate(zombie);
         zombie.transform.position = location2;
 
+        // If killPoints UI not assigned in Inspector, try to find one in scene
+        if (killPoints == null)
+        {
+            var tmp = FindObjectOfType<TMPro.TextMeshProUGUI>();
+            if (tmp != null)
+            {
+                killPoints = tmp;
+                Debug.Log("ZombieSpawner: auto-assigned killPoints to first TextMeshProUGUI found (" + tmp.name + ")");
+            }
+            else
+            {
+                Debug.LogWarning("ZombieSpawner: killPoints UI not assigned and no TextMeshProUGUI found in scene.");
+            }
+        }
+
+        if (killPoints != null) killPoints.SetText(points.ToString());
+
     }
 
     // Update is called once per frame
@@ -77,6 +94,12 @@ public class ZombieSpawner : MonoBehaviour
         /* Increasing Player Points */
         points++;
         killPoints.SetText(points.ToString());
+        // Persist cumulative total kills across sessions
+        int total = PlayerPrefs.GetInt("totalKills", 0) + 1;
+        PlayerPrefs.SetInt("totalKills", total);
+        PlayerPrefs.Save();
+
+        // (total saved above)
        if(points % 5 == 0 && spawnTime > 1f)
        {
             spawnTime -= 0.5f;
