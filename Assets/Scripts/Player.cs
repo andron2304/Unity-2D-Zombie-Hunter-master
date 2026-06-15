@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEditor;
 
 public class Player : MonoBehaviour
 {
@@ -14,9 +15,23 @@ public class Player : MonoBehaviour
 
     private int laneSelect = 2;
 
+    public enum FireMode
+    {
+        Single,
+        Burst,
+        Automatic
+    }
+
+    public FireMode fireMode;
+
     void Start()
     {
         transform.position = new Vector2(locationLane2.position.x, locationLane2.position.y);
+
+        fireMode = FireMode.Single;
+
+        Debug.Log("Current Bullet: " + currentBullet.name);
+        Debug.Log("Fire Mode: " + fireMode.ToString());
         
         if (Bullet.Length > 0)
         {
@@ -67,20 +82,24 @@ public class Player : MonoBehaviour
 
     void CombatInput()
     {
-        // Стрільба на Лівий клік миші (або Пробіл)
-        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.R))
         {
-            Fire();
+            fireMode = FireMode.Single;
+        }
+        
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            fireMode = FireMode.Automatic;
+        }
+        
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            fireMode = FireMode.Burst;
         }
 
-        // Зміна типу куль на клавіші 1 (чоловічі) та 2 (жіночі)
-        if (Input.GetKeyDown(KeyCode.Alpha1))
+        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
         {
-            SetBullet(0);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            SetBullet(1);
+            Fire(fireMode);
         }
     }
 
@@ -92,12 +111,42 @@ public class Player : MonoBehaviour
         }
     }
 
-    public void Fire()
+    public void Fire(enum FireMode fireMode = FireMode.Single)
     {
-        // Створюємо кулю напряму, ігноруючи зламані анімації розробника гри
-        if (currentBullet != null && gunpoint != null)
+        Debug.Log("Fire!");
+
+        switch (fireMode)
         {
-            Instantiate(currentBullet, gunpoint.transform.position, Quaternion.identity);
+            case FireMode.Single:
+                Debug.Log("Single Fire");
+                Instantiate(currentBullet, gunpoint.position, gunpoint.rotation);
+                break;
+            case FireMode.Burst:
+                Debug.Log("Burst Fire");
+                StartCoroutine(BurstFire());
+                break;
+            case FireMode.Automatic:
+                Debug.Log("Automatic Fire");
+                StartCoroutine(AutomaticFire());
+                break;
+        }
+    }
+
+    private IEnumerator BurstFire()
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            Instantiate(currentBullet, gunpoint.position, gunpoint.rotation);
+            yield return new WaitForSeconds(0.1f); // Затримка між пострілами
+        }
+    }
+
+    private IEnumerator AutomaticFire()
+    {
+        while (Input.GetMouseButton(1) || Input.GetKey(KeyCode.E))
+        {
+            Instantiate(currentBullet, gunpoint.position, gunpoint.rotation);
+            yield return new WaitForSeconds(0.1f); // Затримка між пострілами
         }
     }
 }
