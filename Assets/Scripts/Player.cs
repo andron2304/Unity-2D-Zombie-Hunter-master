@@ -1,19 +1,27 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEditor;
 
 public class Player : MonoBehaviour
 {
+    [Header("Positions")]
     public Transform locationLane1;
     public Transform locationLane2;
     public Transform locationLane3;
     public Transform gunpoint;
 
+    [Header("Ammunition")]
     public GameObject[] Bullet;
     public GameObject currentBullet;
 
+    [Header("Weapon Stats & Upgrades")]
+    public int weaponLevel = 1;
+    public float fireRate = 0.2f;        // Затримка між пострілами (менше = швидше)
+    public int projectileCount = 1;      // Кількість куль за один постріл
+    public float spreadAngle = 15f;      // Кут розльоту для кількох куль
+
     private int laneSelect = 2;
+    private bool isFiring = false;       // Запобігає накладанню корутин вогню
 
     public enum FireMode
     {
@@ -27,16 +35,16 @@ public class Player : MonoBehaviour
     void Start()
     {
         transform.position = new Vector2(locationLane2.position.x, locationLane2.position.y);
-
         fireMode = FireMode.Single;
-
-        Debug.Log("Current Bullet: " + currentBullet.name);
-        Debug.Log("Fire Mode: " + fireMode.ToString());
         
+        // Ініціалізуємо кулю ДО того, як звертатися до її імені
         if (Bullet.Length > 0)
         {
             currentBullet = Bullet[0]; 
+            Debug.Log("Current Bullet: " + currentBullet.name);
         }
+
+        Debug.Log("Fire Mode: " + fireMode.ToString());
         laneSelect = 2; 
     }
 
@@ -44,18 +52,22 @@ public class Player : MonoBehaviour
     {
         MovementInput();
         CombatInput();
+
+        // Тестова кнопка для перевірки прокачування зброї (Натисни 'U')
+        if (Input.GetKeyDown(KeyCode.U))
+        {
+            UpgradeWeapon();
+        }
     }
 
     void MovementInput()
     {
-        // Рух вгору (W)
         if (Input.GetKeyDown(KeyCode.W))
         {
             laneSelect--;
             if (laneSelect < 1) laneSelect = 1; 
             UpdateLanePosition();
         }
-        // Рух вниз (S)
         else if (Input.GetKeyDown(KeyCode.S))
         {
             laneSelect++;
@@ -67,37 +79,21 @@ public class Player : MonoBehaviour
     void UpdateLanePosition()
     {
         if (laneSelect == 1)
-        {
             transform.position = new Vector2(locationLane1.position.x, locationLane1.position.y);
-        }
         else if (laneSelect == 2)
-        {
             transform.position = new Vector2(locationLane2.position.x, locationLane2.position.y);
-        }
         else if (laneSelect == 3)
-        {
             transform.position = new Vector2(locationLane3.position.x, locationLane3.position.y);
-        }
     }
 
     void CombatInput()
     {
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            fireMode = FireMode.Single;
-        }
-        
-        if (Input.GetKeyDown(KeyCode.E))
-        {
-            fireMode = FireMode.Automatic;
-        }
-        
-        if (Input.GetKeyDown(KeyCode.Q))
-        {
-            fireMode = FireMode.Burst;
-        }
+        if (Input.GetKeyDown(KeyCode.R)) fireMode = FireMode.Single;
+        if (Input.GetKeyDown(KeyCode.E)) fireMode = FireMode.Automatic;
+        if (Input.GetKeyDown(KeyCode.Q)) fireMode = FireMode.Burst;
 
-        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
+        // Постріл
+        if ((Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space)) && !isFiring)
         {
             Fire(fireMode);
         }
@@ -111,42 +107,88 @@ public class Player : MonoBehaviour
         }
     }
 
-    public void Fire(enum FireMode fireMode = FireMode.Single)
+    // ВИПРАВЛЕНО: прибрано зайве слово enum
+    public void Fire(FireMode mode)
     {
-        Debug.Log("Fire!");
-
-        switch (fireMode)
+        switch (mode)
         {
             case FireMode.Single:
-                Debug.Log("Single Fire");
-                Instantiate(currentBullet, gunpoint.position, gunpoint.rotation);
+                SpawnBullet();
                 break;
             case FireMode.Burst:
-                Debug.Log("Burst Fire");
                 StartCoroutine(BurstFire());
                 break;
             case FireMode.Automatic:
-                Debug.Log("Automatic Fire");
                 StartCoroutine(AutomaticFire());
                 break;
         }
     }
 
-    private IEnumerator BurstFire()
+    // Новий метод для створення куль (підтримує розліт/multishot)
+    private void SpawnBullet()
     {
-        for (int i = 0; i < 3; i++)
+        if (projectileCount == 1)
         {
             Instantiate(currentBullet, gunpoint.position, gunpoint.rotation);
-            yield return new WaitForSeconds(0.1f); // Затримка між пострілами
         }
+        else
+        {
+            // Вираховуємо кути, щоб кулі летіли віялом
+            float startAngle = -spreadAngle * (projectileCount - 1) / 2f;
+            for (int i = 0; i < projectileCount; i++)
+            {
+                Quaternion rotation = gunpoint.rotation * Quaternion.Euler(0, 0, startAngle + (spreadAngle * i));
+                Instantiate(currentBullet, gunpoint.position, rotation);
+            }
+        }
+    }
+
+    private IEnumerator BurstFire()
+    {
+        isFiring = true;
+        for (int i = 0; i < 3; i++)
+        {
+            SpawnBullet();
+            yield return new WaitForSeconds(fireRate); // Використовуємо змінну fireRate
+        }
+        isFiring = false;
     }
 
     private IEnumerator AutomaticFire()
     {
-        while (Input.GetMouseButton(1) || Input.GetKey(KeyCode.E))
+        isFiring = true;
+        // Стріляємо, поки гравець тримає ЛКМ або Пробіл
+        while (Input.GetMouseButton(0) || Input.GetKey(KeyCode.Space))
         {
-            Instantiate(currentBullet, gunpoint.position, gunpoint.rotation);
-            yield return new WaitForSeconds(0.1f); // Затримка між пострілами
+            SpawnBullet();
+            yield return new WaitForSeconds(fireRate); 
+        }
+        isFiring = false;
+    }
+
+    // ==========================================
+    // СИСТЕМА ПОКРАЩЕННЯ ЗБРОЇ
+    // ==========================================
+    public void UpgradeWeapon()
+    {
+        weaponLevel++;
+        Debug.Log("Weapon Upgraded to Level: " + weaponLevel);
+
+        // 1. Збільшуємо швидкострільність (зменшуємо затримку, мінімум до 0.05 сек)
+        fireRate = Mathf.Max(0.05f, fireRate - 0.03f);
+
+        // 2. Додаємо додаткові кулі на певних рівнях прокачки (наприклад, на 3-му і 5-му рівні)
+        if (weaponLevel == 3 || weaponLevel == 5)
+        {
+            projectileCount++;
+            Debug.Log("Multishot activated! Projectiles: " + projectileCount);
+        }
+
+        // 3. Еволюція кулі: змінюємо префаб кулі кожні 2 рівні (якщо є в масиві)
+        int newBulletIndex = (weaponLevel - 1) / 2;
+        if (newBulletIndex < Bullet.Length)
+        {
+            SetBullet(newBulletIndex);
         }
     }
 }
